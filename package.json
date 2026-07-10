@@ -9,7 +9,8 @@
     "./plugin": "./src/plugin.ts",
     "./service": "./src/service.ts",
     "./types": "./src/types.ts",
-    "./validation": "./src/validation.ts"
+    "./validation": "./src/validation.ts",
+    "./voyant": "./src/voyant.ts"
   },
   "scripts": {
     "typecheck": "NODE_OPTIONS=--max-old-space-size=14336 tsc --noEmit",
@@ -75,6 +76,11 @@
         "types": "./dist/validation.d.ts",
         "import": "./dist/validation.js",
         "default": "./dist/validation.js"
+      },
+      "./voyant": {
+        "types": "./dist/voyant.d.ts",
+        "import": "./dist/voyant.js",
+        "default": "./dist/voyant.js"
       }
     },
     "main": "./dist/index.js",
@@ -87,5 +93,22 @@
   "packageManager": "pnpm@10.18.0",
   "engines": {
     "node": ">=20"
+  },
+  "voyant": {
+    "schemaVersion": "voyant.package.v1",
+    "kind": "plugin",
+    "manifest": "./voyant",
+    "compatibleWith": {
+      "framework": ">=0.35.0",
+      "targets": [
+        "node",
+        "voyant-cloud"
+      ],
+      "modes": [
+        "local",
+        "managed-cloud",
+        "self-hosted"
+      ]
+    }
   }
 }
