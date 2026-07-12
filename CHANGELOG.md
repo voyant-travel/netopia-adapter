@@ -1,5 +1,11 @@
 # @voyant-travel/plugin-netopia
 
+## 0.105.21
+
+### Patch Changes
+
+- 2d8ee90: Publish the package-owned Netopia admin OpenAPI document and exact deployment-graph API claims.
+
 ## 0.105.20
 
 ### Patch Changes
