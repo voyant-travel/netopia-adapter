@@ -46,6 +46,9 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Verify external consumer install
+        run: pnpm verify:external-install
+
       - name: Create Release PR or Publish
         id: changesets
         uses: changesets/action@v1

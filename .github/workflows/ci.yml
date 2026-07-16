@@ -34,3 +34,6 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Verify external consumer install
+        run: pnpm verify:external-install
