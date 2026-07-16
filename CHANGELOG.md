@@ -1,5 +1,11 @@
 # @voyant-travel/plugin-netopia
 
+## 0.105.22
+
+### Patch Changes
+
+- dca6c9a: Use the current Notifications dependency line so external consumers do not resolve the historical Tools package with an unresolved catalog dependency.
+
 ## 0.105.21
 
 ### Patch Changes
