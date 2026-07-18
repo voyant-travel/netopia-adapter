@@ -48,6 +48,18 @@ interface NetopiaVoyantPluginManifest {
     apiId: string
     secretIds: readonly string[]
   }[]
+  providers?: readonly {
+    id: string
+    port: "payments.adapter.runtime"
+    selection: {
+      role: "payments"
+      value: "netopia"
+    }
+    runtime: {
+      entry: string
+      export: string
+    }
+  }[]
   meta: {
     ownership: "package"
   }
@@ -58,7 +70,7 @@ const adminApiId = `${pluginId}#api.admin`
 const webhookApiId = `${pluginId}#api.webhook`
 const apiKeySecretId = `${pluginId}#secret.api-key`
 const posSignatureSecretId = `${pluginId}#secret.pos-signature`
-const ipnPublicKeySecretId = `${pluginId}#secret.ipn-public-key`
+const publicKeySecretId = `${pluginId}#secret.public-key`
 
 export const netopiaVoyantPlugin = {
   schemaVersion: "voyant.plugin.v1",
@@ -66,7 +78,11 @@ export const netopiaVoyantPlugin = {
   packageName: pluginId,
   localId: "plugin-netopia",
   provides: {
-    capabilities: ["finance.card-payment", "finance.payment-provider.netopia"],
+    capabilities: [
+      "finance.card-payment",
+      "finance.payment-provider.netopia",
+      "payments.adapter.runtime",
+    ],
   },
   requires: {
     capabilities: ["finance.payment-sessions", "notifications.delivery"],
@@ -98,8 +114,8 @@ export const netopiaVoyantPlugin = {
   config: [
     {
       id: `${pluginId}#config.mode`,
-      key: "NETOPIA_MODE",
-      default: "sandbox",
+      key: "NETOPIA_SANDBOX",
+      default: "true",
     },
     {
       id: `${pluginId}#config.notify-url`,
@@ -115,21 +131,21 @@ export const netopiaVoyantPlugin = {
   secrets: [
     {
       id: apiKeySecretId,
-      key: "NETOPIA_API_KEY",
+      key: "NETOPIA_PRIVATE_KEY",
       required: true,
-      description: "Netopia merchant API key.",
+      description: "Netopia merchant private key or API credential.",
     },
     {
       id: posSignatureSecretId,
-      key: "NETOPIA_POS_SIGNATURE",
+      key: "NETOPIA_MERCHANT_ID",
       required: true,
-      description: "Netopia merchant point-of-sale signature.",
+      description: "Netopia merchant identifier.",
     },
     {
-      id: ipnPublicKeySecretId,
-      key: "NETOPIA_IPN_PUBLIC_KEY",
+      id: publicKeySecretId,
+      key: "NETOPIA_PUBLIC_KEY",
       required: true,
-      description: "Netopia platform public key used to verify inbound IPN callbacks.",
+      description: "Netopia platform public key used to verify inbound callbacks.",
     },
   ],
   webhooks: [
@@ -137,7 +153,18 @@ export const netopiaVoyantPlugin = {
       id: `${pluginId}#webhook.ipn`,
       direction: "inbound",
       apiId: webhookApiId,
-      secretIds: [apiKeySecretId, posSignatureSecretId, ipnPublicKeySecretId],
+      secretIds: [apiKeySecretId, posSignatureSecretId, publicKeySecretId],
+    },
+  ],
+  providers: [
+    {
+      id: `${pluginId}#provider.payments.netopia`,
+      port: "payments.adapter.runtime",
+      selection: { role: "payments", value: "netopia" },
+      runtime: {
+        entry: pluginId,
+        export: "createNetopiaPaymentAdapter",
+      },
     },
   ],
   meta: {

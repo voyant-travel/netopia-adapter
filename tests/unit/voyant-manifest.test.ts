@@ -37,6 +37,7 @@ describe("Netopia deployment manifest", () => {
       },
     })
     expect(packageJson.exports["./voyant"]).toBe("./src/voyant.ts")
+    expect(packageJson.exports["./adapter"]).toBe("./src/adapter.ts")
     expect(packageJson.exports["./openapi/admin"]).toBe("./openapi/admin/netopia.json")
     expect(packageJson.publishConfig.exports["./voyant"]).toEqual({
       types: "./dist/voyant.d.ts",
@@ -51,7 +52,11 @@ describe("Netopia deployment manifest", () => {
       id: "@voyant-travel/plugin-netopia",
       packageName: "@voyant-travel/plugin-netopia",
       provides: {
-        capabilities: ["finance.card-payment", "finance.payment-provider.netopia"],
+        capabilities: [
+          "finance.card-payment",
+          "finance.payment-provider.netopia",
+          "payments.adapter.runtime",
+        ],
       },
       requires: {
         capabilities: ["finance.payment-sessions", "notifications.delivery"],
@@ -81,14 +86,14 @@ describe("Netopia deployment manifest", () => {
         },
       ],
       config: [
-        { key: "NETOPIA_MODE", default: "sandbox" },
+        { key: "NETOPIA_SANDBOX", default: "true" },
         { key: "NETOPIA_NOTIFY_URL", required: true },
         { key: "NETOPIA_REDIRECT_URL", required: true },
       ],
       secrets: [
-        { key: "NETOPIA_API_KEY", required: true },
-        { key: "NETOPIA_POS_SIGNATURE", required: true },
-        { key: "NETOPIA_IPN_PUBLIC_KEY", required: true },
+        { key: "NETOPIA_PRIVATE_KEY", required: true },
+        { key: "NETOPIA_MERCHANT_ID", required: true },
+        { key: "NETOPIA_PUBLIC_KEY", required: true },
       ],
       webhooks: [
         {
@@ -98,8 +103,18 @@ describe("Netopia deployment manifest", () => {
           secretIds: [
             "@voyant-travel/plugin-netopia#secret.api-key",
             "@voyant-travel/plugin-netopia#secret.pos-signature",
-            "@voyant-travel/plugin-netopia#secret.ipn-public-key",
+            "@voyant-travel/plugin-netopia#secret.public-key",
           ],
+        },
+      ],
+      providers: [
+        {
+          port: "payments.adapter.runtime",
+          selection: { role: "payments", value: "netopia" },
+          runtime: {
+            entry: "@voyant-travel/plugin-netopia",
+            export: "createNetopiaPaymentAdapter",
+          },
         },
       ],
     })
@@ -119,7 +134,7 @@ describe("Netopia deployment manifest", () => {
   it("points every runtime reference at a real package export", async () => {
     const runtimeNamespace = await import("@voyant-travel/plugin-netopia")
 
-    for (const facet of netopiaVoyantPlugin.api) {
+    for (const facet of [...netopiaVoyantPlugin.api, ...(netopiaVoyantPlugin.providers ?? [])]) {
       expect(facet.runtime.entry).toBe("@voyant-travel/plugin-netopia")
       expect(runtimeNamespace[facet.runtime.export]).toEqual(expect.any(Function))
     }
