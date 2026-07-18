@@ -1,4 +1,4 @@
-# `@voyant-travel/plugin-netopia`
+# `@voyant-travel/netopia-adapter`
 
 Netopia hosted-card payment adapter bundle for Voyant finance.
 
@@ -58,7 +58,7 @@ path in the app.
 ## Usage
 
 ```ts
-import { createNetopiaFinanceAdapter } from "@voyant-travel/plugin-netopia"
+import { createNetopiaFinanceAdapter } from "@voyant-travel/netopia-adapter"
 
 const netopiaFinanceExtension = createNetopiaFinanceAdapter()
 ```
