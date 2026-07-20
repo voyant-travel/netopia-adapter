@@ -136,9 +136,7 @@ app.post("/rpc", async (c) => {
     return c.json({ ok: false, error: "Unauthorized." }, 401)
   }
 
-  const parsed = rpcRequestSchema.safeParse(
-    await c.req.json().catch(() => null),
-  )
+  const parsed = rpcRequestSchema.safeParse(await c.req.json().catch(() => null))
   if (!parsed.success) {
     return c.json({ ok: false, error: "Malformed request." }, 400)
   }
@@ -156,8 +154,7 @@ app.post("/rpc", async (c) => {
         }
         return c.json({
           ok: false,
-          error:
-            diagnostics.message ?? `Netopia health is ${diagnostics.status}.`,
+          error: diagnostics.message ?? `Netopia health is ${diagnostics.status}.`,
           details: diagnostics.details,
         })
       }
