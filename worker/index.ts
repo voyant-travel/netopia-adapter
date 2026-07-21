@@ -142,7 +142,10 @@ app.post("/rpc", async (c) => {
   }
 
   const req = parsed.data
-  const adapter = createNetopiaPaymentAdapter()
+  // NETOPIA's sandbox signs IPNs with a 2048-bit key but only publishes a
+  // 1024-bit "Cheie publică", so the JWT signature can't be verified. Confirm
+  // callbacks against NETOPIA's authenticated status API instead.
+  const adapter = createNetopiaPaymentAdapter({ confirmViaStatusApi: true })
 
   try {
     switch (req.op) {

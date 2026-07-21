@@ -32,6 +32,14 @@ export const NETOPIA_PAYMENT_ADAPTER_ID = "netopia"
 
 export interface NetopiaPaymentAdapterOptions extends NetopiaRuntimeOptions {
   replayWindowSeconds?: number
+  /**
+   * Confirm callbacks via NETOPIA's authenticated status API when the IPN JWT
+   * signature can't be verified, instead of rejecting. Required where NETOPIA
+   * doesn't expose a verification key matching its IPN signing key (its sandbox
+   * ships a 1024-bit "Cheie publică" but signs IPNs with a 2048-bit key). When
+   * off (default) the adapter is strictly signature-verified.
+   */
+  confirmViaStatusApi?: boolean
 }
 
 type CachedInitiation = {
@@ -109,7 +117,6 @@ export function createNetopiaPaymentAdapter(
       if (previousBody !== undefined && previousBody !== parsed.rawBody) {
         return { verified: false, reason: "replay" }
       }
-      callbackBodiesByEventId.set(eventId, parsed.rawBody)
 
       // Fast path: if the IPN JWT signature verifies against the configured
       // NETOPIA public key, the callback body can be trusted directly.
@@ -127,6 +134,7 @@ export function createNetopiaPaymentAdapter(
           : false
 
       if (signatureVerified) {
+        callbackBodiesByEventId.set(eventId, parsed.rawBody)
         return {
           verified: true,
           event: {
@@ -140,6 +148,16 @@ export function createNetopiaPaymentAdapter(
             idempotencyKey: eventId,
             raw: parsed.payload,
           },
+        }
+      }
+
+      // Without a verified signature, reject unless this adapter is explicitly
+      // configured to confirm out-of-band via the status API — the payments
+      // contract requires signature-verified callbacks by default.
+      if (!options.confirmViaStatusApi) {
+        return {
+          verified: false,
+          reason: runtime.ipnPublicKey && token ? "invalid_signature" : "missing_signature",
         }
       }
 
@@ -162,6 +180,7 @@ export function createNetopiaPaymentAdapter(
         return { verified: false, reason: "invalid_signature" }
       }
 
+      callbackBodiesByEventId.set(eventId, parsed.rawBody)
       const ntpID = statusResponse.payment?.ntpID ?? parsed.payload.payment?.ntpID
       return {
         verified: true,
