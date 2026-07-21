@@ -99,28 +99,9 @@ export function createNetopiaPaymentAdapter(
       if (!parsed.ok) return { verified: false, reason: "malformed" }
 
       const runtime = resolveNetopiaRuntimeOptions(context.env, options)
-      const publicKey = runtime.ipnPublicKey
-      if (!publicKey) return { verified: false, reason: "missing_signature" }
 
       if (isStaleCallback(request.receivedAt, context.now?.() ?? new Date(), options)) {
         return { verified: false, reason: "replay" }
-      }
-
-      const token = callbackHeader(request.headers, "verification-token")
-      if (!token) return { verified: false, reason: "missing_signature" }
-
-      const verification = await verifyNetopiaIpnToken({
-        token,
-        rawBody: parsed.rawBody,
-        posSignature: runtime.posSignature,
-        publicKeyPem: publicKey,
-      })
-      if (!verification.ok) {
-        return {
-          verified: false,
-          reason:
-            verification.reason === "payload_hash_mismatch" ? "malformed" : "invalid_signature",
-        }
       }
 
       const eventId = canonicalCallbackEventId(parsed.payload)
@@ -130,18 +111,77 @@ export function createNetopiaPaymentAdapter(
       }
       callbackBodiesByEventId.set(eventId, parsed.rawBody)
 
+      // Fast path: if the IPN JWT signature verifies against the configured
+      // NETOPIA public key, the callback body can be trusted directly.
+      const token = callbackHeader(request.headers, "verification-token")
+      const signatureVerified =
+        runtime.ipnPublicKey && token
+          ? (
+              await verifyNetopiaIpnToken({
+                token,
+                rawBody: parsed.rawBody,
+                posSignature: runtime.posSignature,
+                publicKeyPem: runtime.ipnPublicKey,
+              })
+            ).ok
+          : false
+
+      if (signatureVerified) {
+        return {
+          verified: true,
+          event: {
+            eventId,
+            paymentSessionId: parsed.payload.order.orderID,
+            nextState: mapCanonicalState(parsed.payload.payment.status, runtime),
+            occurredAt: request.receivedAt,
+            processorSessionId: parsed.payload.payment.ntpID,
+            processorPaymentId: parsed.payload.payment.ntpID,
+            money: netopiaPaymentMoney(parsed.payload),
+            idempotencyKey: eventId,
+            raw: parsed.payload,
+          },
+        }
+      }
+
+      // Authenticated fallback (and current sandbox reality): NETOPIA signs the
+      // IPN JWT with a 2048-bit key but only exposes a 1024-bit "Cheie publică",
+      // so the signature can't be verified. Treat the callback purely as a
+      // trigger and confirm the outcome against NETOPIA's authenticated status
+      // API (`/operation/status`, authorized by the API key) — the source of
+      // truth — never trusting the unsigned body's status.
+      const orderID = parsed.payload.order?.orderID
+      if (!orderID) return { verified: false, reason: "malformed" }
+
+      const statusResponse = await createNetopiaClient(runtime).getPaymentStatus({
+        posID: runtime.posSignature,
+        ntpID: parsed.payload.payment?.ntpID,
+        orderID,
+      })
+      const status = statusResponse.payment?.status
+      if (typeof status !== "number") {
+        return { verified: false, reason: "invalid_signature" }
+      }
+
+      const ntpID = statusResponse.payment?.ntpID ?? parsed.payload.payment?.ntpID
       return {
         verified: true,
         event: {
           eventId,
-          paymentSessionId: parsed.payload.order.orderID,
-          nextState: mapCanonicalState(parsed.payload.payment.status, runtime),
+          paymentSessionId: orderID,
+          nextState: mapCanonicalState(status, runtime),
           occurredAt: request.receivedAt,
-          processorSessionId: parsed.payload.payment.ntpID,
-          processorPaymentId: parsed.payload.payment.ntpID,
-          money: netopiaPaymentMoney(parsed.payload),
+          processorSessionId: ntpID,
+          processorPaymentId: ntpID,
+          money:
+            typeof statusResponse.payment?.amount === "number" &&
+            typeof statusResponse.payment.currency === "string"
+              ? {
+                  amountMinor: amountToCents(statusResponse.payment.amount),
+                  currency: normalizeCurrency(statusResponse.payment.currency),
+                }
+              : netopiaPaymentMoney(parsed.payload),
           idempotencyKey: eventId,
-          raw: parsed.payload,
+          raw: statusResponse,
         },
       }
     },
