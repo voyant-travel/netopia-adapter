@@ -1,0 +1,3 @@
+source_commit=88fc0f3d7ae4c4d93420932f2262612023760faa
+bundle_path=.agent-evidence/netopia-staging-bundle/index.js
+bundle_sha256=b27f74ea0f85876aff57b225f46fd50dd892c104b54b77783bb6c62589549ba2
